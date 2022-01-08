@@ -3,7 +3,86 @@ App = {
   contracts: {},
 
   init: async () => {
-    // Load pets.
+    await App.initWeb3();
+    
+    $('#logout').click(() => {
+      localStorage.removeItem('user')
+      location.reload()
+    })
+
+    const user = localStorage.getItem('user')
+
+    $('form').submit(event => App.handleLogin(event))
+
+    $('#signUpBtn').click(event => App.handleSignUp(event))
+
+    if (user !== null) {
+      $('#loginDiv').hide()
+      $('#logout').show()
+      await App.loadPets()
+    }
+
+  },
+
+  handleLogin: async (event) => {
+    event.preventDefault();
+
+    let adoptionInstance;
+    const web3Address = $('#web3Address').val().toLowerCase()
+    const password = $('#password').val()
+
+    App.contracts.Adoption.deployed().then(instance => {
+      adoptionInstance = instance;
+      return adoptionInstance.checkLoginCredentials.call(web3Address, parseInt(password));
+
+    }).then(userExists => {
+      if (userExists) {
+        localStorage.setItem('user', web3Address)
+
+        $('#loginDiv').hide()
+        $('#logout').show()
+        App.loadPets()
+      }
+      else {
+        alert('Incorrect credentials')
+      }
+
+      $('#web3Address').val('')
+      $('#password').val('')
+
+    }).catch(err => {
+      console.log(err.message);
+    });
+  },
+
+  handleSignUp: (event) => {
+    event.preventDefault();
+
+    let adoptionInstance;
+    const web3Address = $('#web3Address').val().toLowerCase()
+    const password = $('#password').val()
+
+    App.contracts.Adoption.deployed().then(instance => {
+      adoptionInstance = instance;
+      return adoptionInstance.signupUser(web3Address, parseInt(password), { from: web3Address });
+
+    }).then(signUpSuccess => {
+      if (signUpSuccess) {
+        alert('Signup Successfull')
+      }
+      else {
+        alert('This address is already in use')
+      }
+
+      $('#web3Address').val('')
+      $('#password').val('')
+
+    }).catch(err => {
+      console.log(err.message);
+    });
+  },
+
+  loadPets: () => {
     $.getJSON('../pets.json', data => {
       let petsRow = $('#petsRow');
       let petTemplate = $('#petTemplate');
@@ -18,9 +97,11 @@ App = {
 
         petsRow.append(petTemplate.html());
       }
-    });
 
-    return await App.initWeb3();
+      App.markAdopted();
+      $(document).on('click', '.btn-adopt', App.handleAdopt);
+
+    });
   },
 
   initWeb3: async () => {
@@ -46,7 +127,7 @@ App = {
     web3 = new Web3(App.web3Provider);
 
 
-    return App.initContract();
+    return await App.initContract();
   },
 
   initContract: () => {
@@ -57,20 +138,13 @@ App = {
       // Set the provider for our contract
       App.contracts.Adoption.setProvider(App.web3Provider);
 
-      // Use our contract to retrieve and mark the adopted pets
-      return App.markAdopted();
     });
-
-
-    return App.bindEvents();
-  },
-
-  bindEvents: () => {
-    $(document).on('click', '.btn-adopt', App.handleAdopt);
   },
 
   markAdopted: () => {
     let adoptionInstance;
+
+    const account = localStorage.getItem('user')
 
     App.contracts.Adoption.deployed().then(instance => {
       adoptionInstance = instance;
@@ -78,11 +152,18 @@ App = {
       return adoptionInstance.getAdopters.call();
     }).then(adopters => {
       for (i = 0; i < adopters.length; i++) {
-        if (adopters[i] !== '0x0000000000000000000000000000000000000000') {
-          $('.panel-pet').eq(i).find('button').text('UnAdopt');
+        let adoptText = $('.panel-pet').eq(i).find('button')
+
+        if (adopters[i] === '0x0000000000000000000000000000000000000000') {
+          adoptText.text('Adopt');
         }
+
+        else if (adopters[i] === account) {
+          adoptText.text('UnAdopt');
+        }
+
         else {
-          $('.panel-pet').eq(i).find('button').text('Adopt');
+          adoptText.text('Already adopted').attr('disabled', true);
         }
       }
     }).catch(err => {
@@ -97,29 +178,23 @@ App = {
     const petId = parseInt($(event.target).data('id'))
     let adoptionInstance;
 
-    web3.eth.getAccounts((error, accounts) => {
-      if (error) {
-        console.log(error);
+    const account = localStorage.getItem('user');
+
+    App.contracts.Adoption.deployed().then(instance => {
+      adoptionInstance = instance;
+      return adoptionInstance.isPetAdopted.call(petId);
+
+    }).then(isPetAdopted => {
+      if (!isPetAdopted) {
+        // Execute adopt as a transaction by sending account
+        return adoptionInstance.adopt(petId, { from: account });
       }
+      return adoptionInstance.unAdopt(petId, { from: account });
 
-      const account = accounts[0];
-
-      App.contracts.Adoption.deployed().then(instance => {
-        adoptionInstance = instance;
-        return adoptionInstance.isPetAdopted.call(petId);
-
-      }).then(isPetAdopted => {
-        if (!isPetAdopted) {
-          // Execute adopt as a transaction by sending account
-          return adoptionInstance.adopt(petId, { from: account });
-        }
-        return adoptionInstance.unAdopt(petId, { from: account });
-
-      }).then(() => {
-        return App.markAdopted();
-      }).catch(err => {
-        console.log(err.message);
-      });
+    }).then(() => {
+      return App.markAdopted();
+    }).catch(err => {
+      console.log(err.message);
     });
 
   }
