@@ -1,0 +1,7 @@
+node_modules/
+build/
+src/js/bootstrap.min.js
+src/js/web3.min.js
+src/js/truffle-contract.js
+src/css/bootstrap.min.css
+src/css/bootstrap.min.css.map
