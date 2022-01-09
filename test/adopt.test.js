@@ -5,8 +5,9 @@ contract("Adoption", accounts => {
         it("Test adopt function", async () => {
             const adoptionInstance = await Adoption.deployed()
             const petId = 7
+            const petReward = 2
 
-            await adoptionInstance.adopt(petId, { from: accounts[0] })
+            await adoptionInstance.adopt(petId, petReward, { from: accounts[0] })
             const adopters = await adoptionInstance.getAdopters()
 
             assert(adopters[petId] === accounts[0])
@@ -16,8 +17,12 @@ contract("Adoption", accounts => {
         it("Test unAdopt function", async () => {
             const adoptionInstance = await Adoption.deployed()
             const petId = 7
+            const petReward = 2
 
-            await adoptionInstance.unAdopt(petId, { from: accounts[0] })
+            // adopting is required otherwise balance is 0 hence not possible to unadopt
+            await adoptionInstance.adopt(petId, petReward + 1, { from: accounts[0] })
+            
+            await adoptionInstance.unAdopt(petId, petReward, { from: accounts[0] })
             const adopters = await adoptionInstance.getAdopters()
 
             assert(adopters[petId] === '0x0000000000000000000000000000000000000000')
@@ -27,8 +32,9 @@ contract("Adoption", accounts => {
         it("Test isPetAdopted function", async () => {
             const adoptionInstance = await Adoption.deployed()
             const petId = 7
+            const petReward = 2
 
-            await adoptionInstance.adopt(petId, { from: accounts[0] })
+            await adoptionInstance.adopt(petId, petReward, { from: accounts[0] })
             const isPetAdopted = await adoptionInstance.isPetAdopted(petId)
 
             assert(isPetAdopted)

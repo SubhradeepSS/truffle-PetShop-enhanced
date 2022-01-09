@@ -19,6 +19,7 @@ App = {
     if (user !== null) {
       $('#loginDiv').hide()
       $('#logout').show()
+      $('#rewardH3').show()
       await App.loadPets()
     }
 
@@ -41,6 +42,7 @@ App = {
 
         $('#loginDiv').hide()
         $('#logout').show()
+        $('#rewardH3').show()
         App.loadPets()
       }
       else {
@@ -92,8 +94,10 @@ App = {
         petTemplate.find('img').attr('src', data[i].picture);
         petTemplate.find('.pet-breed').text(data[i].breed);
         petTemplate.find('.pet-age').text(data[i].age);
+        petTemplate.find('.pet-reward').text(data[i].reward);
         petTemplate.find('.pet-location').text(data[i].location);
         petTemplate.find('.btn-adopt').attr('data-id', data[i].id);
+        petTemplate.find('.btn-adopt').attr('data-reward', data[i].reward);
 
         petsRow.append(petTemplate.html());
       }
@@ -148,8 +152,13 @@ App = {
 
     App.contracts.Adoption.deployed().then(instance => {
       adoptionInstance = instance;
+      return adoptionInstance.getBalance.call(account);
 
+    }).then(balance => {
+      
+      $('#rewards').html(parseInt(balance))
       return adoptionInstance.getAdopters.call();
+
     }).then(adopters => {
       for (i = 0; i < adopters.length; i++) {
         let adoptText = $('.panel-pet').eq(i).find('button')
@@ -176,6 +185,7 @@ App = {
     event.preventDefault();
 
     const petId = parseInt($(event.target).data('id'))
+    const petReward = parseInt($(event.target).data('reward'))
     let adoptionInstance;
 
     const account = localStorage.getItem('user');
@@ -187,9 +197,9 @@ App = {
     }).then(isPetAdopted => {
       if (!isPetAdopted) {
         // Execute adopt as a transaction by sending account
-        return adoptionInstance.adopt(petId, { from: account });
+        return adoptionInstance.adopt(petId, petReward, { from: account });
       }
-      return adoptionInstance.unAdopt(petId, { from: account });
+      return adoptionInstance.unAdopt(petId, petReward, { from: account });
 
     }).then(() => {
       return App.markAdopted();

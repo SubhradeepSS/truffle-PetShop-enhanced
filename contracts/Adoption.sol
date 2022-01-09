@@ -4,19 +4,40 @@ pragma solidity >=0.4.22 <0.9.0;
 contract Adoption {
     address[16] public adopters;
     mapping(address => uint) public users;
+    mapping(address => uint) public balances;
 
-    function adopt(uint petId) public {
-        require(petId >= 0 && petId < 16);
-        adopters[petId] = msg.sender;
-    }
+    /* 
+        not using - 
+        struct User {
+            uint password;
+            uint balance;
+        } 
+        because struct is costly in solidity
+    */
+
+    
+    // extra fee to be paid by user to unadopt pet
+    uint public unAdoptionFee = 1;
 
     function getAdopters() public view returns (address[16] memory) {
         return adopters;
     }
 
-    function unAdopt(uint petId) public {
+    function getBalance(address addr) public view returns (uint) {
+        return balances[addr];
+    }
+
+    function adopt(uint petId, uint petReward) public {
         require(petId >= 0 && petId < 16);
+        adopters[petId] = msg.sender;
+        balances[msg.sender] += petReward;
+    }
+
+    function unAdopt(uint petId, uint petReward) public {
+        require(petId >= 0 && petId < 16);
+        require(balances[msg.sender] >= petReward + unAdoptionFee);
         adopters[petId] = address(0);
+        balances[msg.sender] -= petReward + unAdoptionFee;
     }
 
     function isPetAdopted(uint petId) public view returns (bool) {
